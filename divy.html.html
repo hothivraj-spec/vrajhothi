@@ -1,0 +1,423 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GDL ESPORTS</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:Arial,sans-serif}
+body{background:#101323;color:white;min-height:100vh}
+header{background:#202944;text-align:center;padding:25px 12px}
+header h1{color:#00ff88;font-size:30px}
+header p{color:#ddd;margin-top:8px}
+.container{max-width:950px;margin:auto;padding:16px}
+.panel{background:#202944;padding:20px;border-radius:12px;margin:16px 0}
+h2{color:#00ff88;margin-bottom:14px}
+input,select,button{width:100%;padding:13px;margin:7px 0;border:0;border-radius:7px;font-size:16px}
+input,select{background:#fff;color:#111}
+button{background:#00c878;color:#07150f;font-weight:bold;cursor:pointer}
+.logout{background:#e34b5d;color:white}
+.hidden{display:none!important}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat{background:#202944;padding:17px;text-align:center;border-radius:10px}
+.stat h3{font-size:27px;color:#00ff88}
+.player,.photo{background:#182139;padding:13px;border-radius:9px;margin:10px 0}
+.status{color:#00ff88;margin-top:7px}
+.pending{color:#ff7474}
+.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.photo img{width:100%;height:190px;object-fit:contain;background:#080d19;border-radius:7px}
+.photo p{margin-top:8px;overflow-wrap:anywhere}
+.small{font-size:12px;color:#bbb}
+#message,#authMessage,#adminMessage{margin-top:10px;color:#00ff88;overflow-wrap:anywhere}
+.note{font-size:13px;color:#ffd27a;line-height:1.5}
+.playerline{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.delete{width:auto;padding:8px 12px;background:#d94758;color:#fff}
+@media(max-width:520px){
+header h1{font-size:24px}
+.panel{padding:15px}
+.stats{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+<h1>🔥 GDL ESPORTS</h1>
+<p>Daily Practice Screenshot Tracker</p>
+</header>
+
+<div class="container">
+
+<section class="panel" id="loginPanel">
+<h2>🔐 GDL ESPORTS Login</h2>
+
+<select id="loginRole">
+<option value="player">Player Login</option>
+<option value="admin">Admin Login</option>
+</select>
+
+<input id="loginId" placeholder="Admin ID / Player Name">
+<input id="loginPassword" type="password" placeholder="Password">
+
+<button onclick="login()">LOGIN</button>
+<p id="authMessage"></p>
+</section>
+
+<section id="dashboard" class="hidden">
+
+<div class="panel">
+<h2 id="welcome">Welcome</h2>
+<p id="roleText"></p>
+<button class="logout" onclick="logout()">LOGOUT</button>
+</div>
+
+<div class="stats">
+<div class="stat">
+<h3 id="totalPlayers">0</h3>
+<p>Total Players</p>
+</div>
+<div class="stat">
+<h3 id="totalUploads">0</h3>
+<p>Total Screenshots</p>
+</div>
+</div>
+
+<div class="panel hidden" id="adminPanel">
+<h2>👑 Admin - Add Player</h2>
+<input id="newName" placeholder="Player Name">
+<input id="newPassword" type="password" placeholder="Player Password">
+<button onclick="addPlayer()">ADD PLAYER</button>
+<p id="adminMessage"></p>
+</div>
+
+<div class="panel hidden" id="uploadPanel">
+<h2>📸 Daily Practice Upload</h2>
+<p id="myName"></p>
+<input type="file" id="screenshot" accept="image/*">
+<button onclick="uploadScreenshot()">UPLOAD SCREENSHOT</button>
+<p id="message"></p>
+</div>
+
+<div class="panel">
+<h2>👥 All Players Practice Status</h2>
+<div id="playerList"></div>
+</div>
+
+<div class="panel">
+<h2>🖼️ All Practice Screenshots</h2>
+<div class="gallery" id="gallery"></div>
+</div>
+
+</section>
+</div>
+
+<script>
+const ADMIN_ID = "7016859756";
+const ADMIN_PASSWORD = "vrajhothi12";
+
+const STORE_KEY = "gdl_esports_tracker_v1";
+
+let currentUser = null;
+
+function loadData(){
+try{
+const saved = JSON.parse(localStorage.getItem(STORE_KEY));
+return saved && Array.isArray(saved.players) && Array.isArray(saved.uploads)
+?saved:{players:[],uploads:[]};
+}catch(e){
+return {players:[],uploads:[]};
+}
+}
+
+let data = loadData();
+
+function saveData(){
+try{
+localStorage.setItem(STORE_KEY,JSON.stringify(data));
+return true;
+}catch(e){
+alert("Browser storage full ho gaya. Kuch purane screenshots delete karein.");
+return false;
+}
+}
+
+function showMessage(id,text){
+document.getElementById(id).textContent=text;
+}
+
+function login(){
+
+const role=document.getElementById("loginRole").value;
+const id=document.getElementById("loginId").value.trim();
+const password=document.getElementById("loginPassword").value;
+
+if(!id || !password){
+showMessage("authMessage","ID aur password enter karein.");
+return;
+}
+
+if(role==="admin"){
+
+if(id===ADMIN_ID && password===ADMIN_PASSWORD){
+
+currentUser={role:"admin",name:"GDL Admin"};
+openDashboard();
+
+}else{
+showMessage("authMessage","Admin ID ya password galat hai.");
+}
+
+}else{
+
+const player=data.players.find(p=>
+p.name.toLowerCase()===id.toLowerCase() &&
+p.password===password
+);
+
+if(!player){
+showMessage("authMessage","Player name ya password galat hai.");
+return;
+}
+
+currentUser={
+role:"player",
+playerId:player.id,
+name:player.name
+};
+
+openDashboard();
+}
+}
+
+function openDashboard(){
+
+document.getElementById("loginPanel").classList.add("hidden");
+document.getElementById("dashboard").classList.remove("hidden");
+
+document.getElementById("welcome").textContent="Welcome "+currentUser.name;
+
+document.getElementById("roleText").textContent=
+currentUser.role==="admin"?"👑 ADMIN PANEL":"🎮 PLAYER PANEL";
+
+document.getElementById("adminPanel").classList.toggle("hidden",currentUser.role!=="admin");
+document.getElementById("uploadPanel").classList.toggle("hidden",currentUser.role!=="player");
+
+if(currentUser.role==="player"){
+document.getElementById("myName").textContent="Player: "+currentUser.name;
+}
+
+render();
+}
+
+function logout(){
+
+currentUser=null;
+
+document.getElementById("dashboard").classList.add("hidden");
+document.getElementById("loginPanel").classList.remove("hidden");
+
+document.getElementById("loginPassword").value="";
+showMessage("authMessage","");
+}
+
+function addPlayer(){
+
+if(!currentUser || currentUser.role!=="admin")return;
+
+const name=document.getElementById("newName").value.trim();
+const password=document.getElementById("newPassword").value;
+
+if(!name || !password){
+showMessage("adminMessage","Player name aur password likhein.");
+return;
+}
+
+if(data.players.some(p=>p.name.toLowerCase()===name.toLowerCase())){
+showMessage("adminMessage","Player already added hai.");
+return;
+}
+
+data.players.push({
+id:Date.now().toString()+Math.random().toString(16).slice(2),
+name:name,
+password:password
+});
+
+if(saveData()){
+
+document.getElementById("newName").value="";
+document.getElementById("newPassword").value="";
+
+showMessage("adminMessage","Player successfully add ho gaya!");
+
+render();
+}
+}
+
+function todayKey(){
+
+const d=new Date();
+
+return d.getFullYear()+"-"+
+String(d.getMonth()+1).padStart(2,"0")+"-"+
+String(d.getDate()).padStart(2,"0");
+}
+
+function render(){
+
+document.getElementById("totalPlayers").textContent=data.players.length;
+document.getElementById("totalUploads").textContent=data.uploads.length;
+
+const list=document.getElementById("playerList");
+list.innerHTML="";
+
+if(!data.players.length){
+list.textContent="Abhi koi player add nahi hua.";
+}
+
+data.players.forEach(player=>{
+
+const done=data.uploads.some(u=>
+u.playerId===player.id && u.day===todayKey()
+);
+
+const box=document.createElement("div");
+box.className="player";
+
+const line=document.createElement("div");
+line.className="playerline";
+
+const name=document.createElement("b");
+name.textContent="🎮 "+player.name;
+
+line.appendChild(name);
+
+if(currentUser && currentUser.role==="admin"){
+
+const del=document.createElement("button");
+del.className="delete";
+del.textContent="DELETE";
+
+del.onclick=()=>deletePlayer(player.id);
+
+line.appendChild(del);
+}
+
+const status=document.createElement("p");
+status.className=done?"status":"status pending";
+status.textContent=done?"✅ Practice Complete":"❌ Practice Pending";
+
+box.append(line,status);
+list.appendChild(box);
+});
+
+const gallery=document.getElementById("gallery");
+gallery.innerHTML="";
+
+[...data.uploads].reverse().forEach(item=>{
+
+const card=document.createElement("div");
+card.className="photo";
+
+const img=document.createElement("img");
+img.src=item.image;
+img.alt="Practice screenshot";
+img.loading="lazy";
+
+const name=document.createElement("p");
+name.textContent="👤 "+item.playerName;
+
+const date=document.createElement("p");
+date.className="small";
+date.textContent=item.time;
+
+card.append(img,name,date);
+
+if(currentUser && currentUser.role==="admin"){
+
+const del=document.createElement("button");
+del.className="delete";
+del.textContent="DELETE SCREENSHOT";
+del.onclick=()=>deleteUpload(item.id);
+
+card.appendChild(del);
+}
+
+gallery.appendChild(card);
+});
+}
+
+function deletePlayer(id){
+
+if(!confirm("Player aur uske screenshots delete karein?"))return;
+
+data.players=data.players.filter(p=>p.id!==id);
+data.uploads=data.uploads.filter(u=>u.playerId!==id);
+
+if(saveData())render();
+}
+
+function deleteUpload(id){
+
+if(!confirm("Screenshot delete karein?"))return;
+
+data.uploads=data.uploads.filter(u=>u.id!==id);
+
+if(saveData())render();
+}
+
+function uploadScreenshot(){
+
+if(!currentUser || currentUser.role!=="player")return;
+
+const file=document.getElementById("screenshot").files[0];
+
+if(!file){
+showMessage("message","Pehle screenshot select karein.");
+return;
+}
+
+if(!file.type.startsWith("image/")){
+showMessage("message","Sirf image upload karein.");
+return;
+}
+
+if(file.size>1.5*1024*1024){
+showMessage("message","Image 1.5 MB se chhoti honi chahiye.");
+return;
+}
+
+const reader=new FileReader();
+
+reader.onload=()=>{
+
+data.uploads.push({
+id:Date.now().toString()+Math.random().toString(16).slice(2),
+playerId:currentUser.playerId,
+playerName:currentUser.name,
+image:reader.result,
+day:todayKey(),
+time:new Date().toLocaleString()
+});
+
+if(saveData()){
+
+document.getElementById("screenshot").value="";
+
+showMessage("message","✅ Screenshot saved successfully!");
+
+render();
+}
+};
+
+reader.onerror=()=>{
+showMessage("message","Image read nahi ho payi.");
+};
+
+reader.readAsDataURL(file);
+}
+</script>
+
+</body>
+</html>
